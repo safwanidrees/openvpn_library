@@ -299,9 +299,9 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private void showNotification(final String msg, String tickerText, @NonNull String channel,
                                   long when, ConnectionStatus status, Intent intent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if(channel.equals(NOTIFICATION_CHANNEL_BG_ID)){
+            if (channel.equals(NOTIFICATION_CHANNEL_BG_ID)) {
                 channel = createNotificationChannel(channel, getAppName(this) + " VPN Background");
-            }else if(channel.equals(NOTIFICATION_CHANNEL_NEWSTATUS_ID)){
+            } else if (channel.equals(NOTIFICATION_CHANNEL_NEWSTATUS_ID)) {
                 channel = createNotificationChannel(channel, getAppName(this) + " VPN Stats");
             }
         } else {
@@ -340,7 +340,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         jbNotificationExtras(priority, nbuilder);
         addVpnActionsToNotification(nbuilder);
-       
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             lpNotificationExtras(nbuilder, Notification.CATEGORY_SERVICE);
@@ -427,7 +427,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
             //ignore exception
         } catch (NoSuchMethodException | IllegalArgumentException |
-                InvocationTargetException | IllegalAccessException e) {
+                 InvocationTargetException | IllegalAccessException e) {
             VpnStatus.logException(e);
         }
 
@@ -438,9 +438,10 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         Intent disconnectVPN = new Intent(this, DisconnectVPNActivity.class);
         disconnectVPN.setAction(DISCONNECT_VPN);
         PendingIntent disconnectPendingIntent = PendingIntent.getActivity(this, 0, disconnectVPN, PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent appIntent = PendingIntent.getActivity(this, 0, new Intent(this, LaunchVPN.class), PendingIntent.FLAG_IMMUTABLE);
 
         nbuilder.addAction(R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.cancel_connection), disconnectPendingIntent);
+                getString(R.string.cancel_connection), appIntent);
 
         // Intent pauseVPN = new Intent(this, OpenVPNService.class);
         // if (mDeviceStateReceiver == null || !mDeviceStateReceiver.isUserPaused()) {
@@ -735,7 +736,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             Class cl = Class.forName("de.blinkt.openvpn.core.OpenVPNThreadv3");
             return (OpenVPNManagement) cl.getConstructor(OpenVPNService.class, VpnProfile.class).newInstance(this, mProfile);
         } catch (IllegalArgumentException | InstantiationException | InvocationTargetException |
-                NoSuchMethodException | ClassNotFoundException | IllegalAccessException e) {
+                 NoSuchMethodException | ClassNotFoundException | IllegalAccessException e) {
             e.printStackTrace();
         }
         return null;
@@ -1291,8 +1292,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             byteIn = String.valueOf(in);
             byteOut = String.valueOf(out);
 
-            if(byteIn.isEmpty() ||byteIn.trim().length() == 0) byteIn = "0";
-            if(byteOut.isEmpty() || byteOut.trim().length() == 0) byteOut = "0";
+            if (byteIn.isEmpty() || byteIn.trim().length() == 0) byteIn = "0";
+            if (byteOut.isEmpty() || byteOut.trim().length() == 0) byteOut = "0";
 
             time = Calendar.getInstance().getTimeInMillis() - c;
             lastPacketReceive = Integer.parseInt(convertTwoDigit((int) (time / 1000) % 60)) - Integer.parseInt(seconds);
