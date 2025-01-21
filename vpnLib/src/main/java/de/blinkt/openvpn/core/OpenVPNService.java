@@ -413,8 +413,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void jbNotificationExtras(int priority,
-                                      android.app.Notification.Builder nbuilder) {
+    private void jbNotificationExtras(int priority, android.app.Notification.Builder nbuilder) {
         try {
             if (priority != 0) {
                 Method setpriority = nbuilder.getClass().getMethod("setPriority", int.class);
@@ -437,11 +436,12 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private void addVpnActionsToNotification(Notification.Builder nbuilder) {
         Intent disconnectVPN = new Intent(this, DisconnectVPNActivity.class);
         disconnectVPN.setAction(DISCONNECT_VPN);
-        PendingIntent disconnectPendingIntent = PendingIntent.getActivity(this, 0, disconnectVPN, PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent appIntent = PendingIntent.getActivity(this, 0, new Intent(this, LaunchVPN.class), PendingIntent.FLAG_IMMUTABLE);
+
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getApplicationContext().getPackageName());
+        PendingIntent pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, launchIntent, PendingIntent.FLAG_IMMUTABLE);
 
         nbuilder.addAction(R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.cancel_connection), appIntent);
+                getString(R.string.cancel_connection), pendingIntent);
 
         // Intent pauseVPN = new Intent(this, OpenVPNService.class);
         // if (mDeviceStateReceiver == null || !mDeviceStateReceiver.isUserPaused()) {
