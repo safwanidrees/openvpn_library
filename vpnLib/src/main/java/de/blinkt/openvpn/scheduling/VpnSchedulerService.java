@@ -184,6 +184,15 @@ public class VpnSchedulerService extends Service {
         
         Log.d(TAG, "VPN Scheduler: All validation checks passed");
         
+        // Clear all existing schedules for fresh start (prevent conflicts)
+        Log.d(TAG, "VPN Scheduler: Clearing all existing schedules for fresh start");
+        List<VpnSchedule> existingSchedules = vpnScheduler.getAllSchedules();
+        for (VpnSchedule existingSchedule : existingSchedules) {
+            vpnScheduler.cancelSchedule(existingSchedule.getId());
+            Log.d(TAG, "VPN Scheduler: Cancelled existing schedule: " + existingSchedule.getId());
+        }
+        Log.d(TAG, "VPN Scheduler: Cleared " + existingSchedules.size() + " existing schedules");
+        
         // Start VPN connection using the same method as normal connection
         Log.d(TAG, "VPN Scheduler: Starting VPN using OpenVpnApi.startVpn()");
         
@@ -241,6 +250,16 @@ public class VpnSchedulerService extends Service {
         try {
             de.blinkt.openvpn.core.OpenVPNThread.stop();
             Log.d(TAG, "VPN Scheduler: VPN disconnect command sent successfully");
+            
+            // Clear all schedules to prevent auto-reconnect (same as manual disconnect)
+            Log.d(TAG, "VPN Scheduler: Clearing all schedules to prevent auto-reconnect");
+            List<VpnSchedule> allSchedules = vpnScheduler.getAllSchedules();
+            for (VpnSchedule schedule : allSchedules) {
+                vpnScheduler.cancelSchedule(schedule.getId());
+                Log.d(TAG, "VPN Scheduler: Cancelled schedule: " + schedule.getId());
+            }
+            Log.d(TAG, "VPN Scheduler: Cleared " + allSchedules.size() + " schedules");
+            
         } catch (Exception e) {
             Log.e(TAG, "VPN Scheduler: Error stopping VPN: " + e.getMessage());
             Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
