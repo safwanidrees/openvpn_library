@@ -186,9 +186,9 @@ public class VpnSchedulerService extends Service {
         
         // Clear all existing schedules for fresh start (prevent conflicts)
         Log.d(TAG, "VPN Scheduler: Clearing all existing schedules for fresh start");
-        List<VpnSchedule> existingSchedules = vpnScheduler.getAllSchedules();
+        List<VpnSchedule> existingSchedules = getAllSchedules();
         for (VpnSchedule existingSchedule : existingSchedules) {
-            vpnScheduler.cancelSchedule(existingSchedule.getId());
+            cancelSchedule(existingSchedule.getId());
             Log.d(TAG, "VPN Scheduler: Cancelled existing schedule: " + existingSchedule.getId());
         }
         Log.d(TAG, "VPN Scheduler: Cleared " + existingSchedules.size() + " existing schedules");
@@ -253,9 +253,9 @@ public class VpnSchedulerService extends Service {
             
             // Clear all schedules to prevent auto-reconnect (same as manual disconnect)
             Log.d(TAG, "VPN Scheduler: Clearing all schedules to prevent auto-reconnect");
-            List<VpnSchedule> allSchedules = vpnScheduler.getAllSchedules();
+            List<VpnSchedule> allSchedules = getAllSchedules();
             for (VpnSchedule schedule : allSchedules) {
-                vpnScheduler.cancelSchedule(schedule.getId());
+                cancelSchedule(schedule.getId());
                 Log.d(TAG, "VPN Scheduler: Cancelled schedule: " + schedule.getId());
             }
             Log.d(TAG, "VPN Scheduler: Cleared " + allSchedules.size() + " schedules");
