@@ -30,7 +30,7 @@
             android:name=".scheduling.VpnSchedulerService"
             android:exported="false"
             android:enabled="true"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="dataSync" />
 
         <activity
             android:name=".LaunchVPN"
