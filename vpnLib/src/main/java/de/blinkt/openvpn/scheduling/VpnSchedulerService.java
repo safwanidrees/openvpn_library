@@ -189,17 +189,23 @@ public class VpnSchedulerService extends Service {
         
         try {
             // Parse bypass packages from JSON string
-            List<String> bypassPackagesList = null;
+            List<String> bypassPackagesList = new java.util.ArrayList<>();
             if (schedule.getBypassPackages() != null && !schedule.getBypassPackages().trim().isEmpty()) {
                 try {
                     bypassPackagesList = new com.google.gson.Gson().fromJson(
                         schedule.getBypassPackages(), 
                         new com.google.gson.reflect.TypeToken<List<String>>(){}.getType()
                     );
+                    if (bypassPackagesList == null) {
+                        bypassPackagesList = new java.util.ArrayList<>();
+                    }
                 } catch (Exception e) {
                     Log.w(TAG, "VPN Scheduler: Could not parse bypass packages: " + e.getMessage());
+                    bypassPackagesList = new java.util.ArrayList<>();
                 }
             }
+            
+            Log.d(TAG, "VPN Scheduler: Bypass packages list size: " + bypassPackagesList.size());
             
             // Use the same API as normal VPN connection
             de.blinkt.openvpn.OpenVpnApi.startVpn(
