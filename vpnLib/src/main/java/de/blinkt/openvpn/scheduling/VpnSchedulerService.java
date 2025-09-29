@@ -159,32 +159,61 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Password: " + (schedule.getPassword() != null ? "[PROVIDED]" : "[NULL]"));
         Log.d(TAG, "VPN Scheduler: Bypass packages: " + schedule.getBypassPackages());
         
-        // Start VPN connection
-        Intent vpnIntent = new Intent(this, OpenVPNService.class);
-        vpnIntent.setAction(OpenVPNService.START_SERVICE);
-        vpnIntent.putExtra("config", schedule.getConfig());
-        vpnIntent.putExtra("name", schedule.getName());
-        vpnIntent.putExtra("username", schedule.getUsername());
-        vpnIntent.putExtra("password", schedule.getPassword());
-        vpnIntent.putExtra("bypassPackages", schedule.getBypassPackages());
+        // Validate VPN configuration
+        Log.d(TAG, "VPN Scheduler: Starting validation checks...");
         
-        Log.d(TAG, "VPN Scheduler: Sending VPN start intent to OpenVPNService");
-        Log.d(TAG, "VPN Scheduler: Intent action: " + vpnIntent.getAction());
-        Log.d(TAG, "VPN Scheduler: Intent extras: " + vpnIntent.getExtras());
+        if (schedule.getConfig() == null || schedule.getConfig().trim().isEmpty()) {
+            Log.e(TAG, "VPN Scheduler: ERROR - VPN config is null or empty");
+            return;
+        }
+        
+        Log.d(TAG, "VPN Scheduler: Config validation passed");
+        
+        // Note: Username and password are optional in this app design
+        if (schedule.getUsername() != null && !schedule.getUsername().trim().isEmpty()) {
+            Log.d(TAG, "VPN Scheduler: Username provided: " + schedule.getUsername());
+        } else {
+            Log.d(TAG, "VPN Scheduler: No username provided (optional)");
+        }
+        
+        if (schedule.getPassword() != null && !schedule.getPassword().trim().isEmpty()) {
+            Log.d(TAG, "VPN Scheduler: Password provided");
+        } else {
+            Log.d(TAG, "VPN Scheduler: No password provided (optional)");
+        }
+        
+        Log.d(TAG, "VPN Scheduler: All validation checks passed");
+        
+        // Start VPN connection using the same method as normal connection
+        Log.d(TAG, "VPN Scheduler: Starting VPN using OpenVpnApi.startVpn()");
         
         try {
-            startService(vpnIntent);
-            Log.d(TAG, "VPN Scheduler: VPN connection started successfully");
-        } catch (SecurityException e) {
-            Log.e(TAG, "VPN Scheduler: Security error starting VPN service: " + e.getMessage());
-            Log.e(TAG, "VPN Scheduler: Check VPN permissions and service declarations");
-            e.printStackTrace();
-        } catch (IllegalStateException e) {
-            Log.e(TAG, "VPN Scheduler: Illegal state error starting VPN service: " + e.getMessage());
-            Log.e(TAG, "VPN Scheduler: Service may not be properly initialized");
-            e.printStackTrace();
+            // Parse bypass packages from JSON string
+            List<String> bypassPackagesList = null;
+            if (schedule.getBypassPackages() != null && !schedule.getBypassPackages().trim().isEmpty()) {
+                try {
+                    bypassPackagesList = new com.google.gson.Gson().fromJson(
+                        schedule.getBypassPackages(), 
+                        new com.google.gson.reflect.TypeToken<List<String>>(){}.getType()
+                    );
+                } catch (Exception e) {
+                    Log.w(TAG, "VPN Scheduler: Could not parse bypass packages: " + e.getMessage());
+                }
+            }
+            
+            // Use the same API as normal VPN connection
+            de.blinkt.openvpn.OpenVpnApi.startVpn(
+                this, 
+                schedule.getConfig(), 
+                schedule.getName(), 
+                schedule.getUsername(), 
+                schedule.getPassword(), 
+                bypassPackagesList
+            );
+            
+            Log.d(TAG, "VPN Scheduler: VPN connection started successfully using OpenVpnApi");
         } catch (Exception e) {
-            Log.e(TAG, "VPN Scheduler: Unexpected error starting VPN service: " + e.getMessage());
+            Log.e(TAG, "VPN Scheduler: Error starting VPN with OpenVpnApi: " + e.getMessage());
             Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
             e.printStackTrace();
         }
@@ -201,12 +230,16 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Handling scheduled disconnect for: " + scheduleId);
         Log.d(TAG, "VPN Scheduler: Disconnect triggered at UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
         
-        // Stop VPN connection
-        Log.d(TAG, "VPN Scheduler: Sending VPN disconnect intent to OpenVPNService");
-        Intent disconnectIntent = new Intent(this, OpenVPNService.class);
-        disconnectIntent.setAction(OpenVPNService.DISCONNECT_VPN);
-        startService(disconnectIntent);
-        Log.d(TAG, "VPN Scheduler: VPN disconnect command sent successfully");
+        // Stop VPN connection using the same method as normal disconnect
+        Log.d(TAG, "VPN Scheduler: Stopping VPN using OpenVPNThread.stop()");
+        try {
+            de.blinkt.openvpn.core.OpenVPNThread.stop();
+            Log.d(TAG, "VPN Scheduler: VPN disconnect command sent successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "VPN Scheduler: Error stopping VPN: " + e.getMessage());
+            Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
+            e.printStackTrace();
+        }
     }
     
     private void scheduleDisconnect(VpnSchedule schedule) {
