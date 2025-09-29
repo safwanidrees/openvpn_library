@@ -20,6 +20,8 @@ import java.util.List;
 import de.blinkt.openvpn.core.OpenVPNService;
 import de.blinkt.openvpn.core.OpenVPNThread;
 import de.blinkt.openvpn.core.VpnStatus;
+import de.blinkt.openvpn.scheduling.VpnScheduler;
+import de.blinkt.openvpn.scheduling.VpnSchedule;
 
 public class VPNHelper extends Activity {
     public Activity activity;
@@ -33,7 +35,7 @@ public class VPNHelper extends Activity {
     private static List<String> bypassPackages;
 
     public JSONObject status = new JSONObject();
-
+    private VpnScheduler vpnScheduler;
 
     public boolean isConnected(){
         return vpnStart;
@@ -43,6 +45,7 @@ public class VPNHelper extends Activity {
         this.activity = activity;
         VPNHelper.vpnStart = false;
         VpnStatus.initLogCache(activity.getCacheDir());
+        this.vpnScheduler = new VpnScheduler(activity);
     }
 
     public void setOnVPNStatusChangeListener(OnVPNStatusChangeListener listener) {
@@ -56,18 +59,69 @@ public class VPNHelper extends Activity {
 
 
     public void startVPN(String config, String username, String password, String name, List<String> bypass) {
+        startVPN(config, username, password, name, bypass, 0, 0); // Default to immediate
+    }
+
+    /**
+     * Single function to start VPN - immediate or scheduled
+     * @param config OpenVPN configuration string
+     * @param username Authentication username
+     * @param password Authentication password
+     * @param name Profile name
+     * @param bypassPackages List of package names to bypass VPN
+     * @param startTimeUTC Start time in UTC milliseconds (0 for immediate connection)
+     * @param endTimeUTC End time in UTC milliseconds (0 for manual disconnect)
+     * @return Schedule ID if scheduled, null if immediate
+     */
+    public String startVPN(String config, String username, String password, String name, List<String> bypassPackages, long startTimeUTC, long endTimeUTC) {
         VPNHelper.config = config;
         VPNHelper.profileIntent = VpnService.prepare(activity);
         VPNHelper.username = username;
         VPNHelper.password = password;
         VPNHelper.name = name;
-        VPNHelper.bypassPackages = bypass;
+        VPNHelper.bypassPackages = bypassPackages;
 
-        if (profileIntent != null) {
-            activity.startActivityForResult(VPNHelper.profileIntent, 1);
-        }else{
-            startVPN();
+        // If no scheduling time provided, use original immediate connection
+        if (startTimeUTC <= 0) {
+            if (profileIntent != null) {
+                activity.startActivityForResult(VPNHelper.profileIntent, 1);
+            } else {
+                startVPN();
+            }
+            return null; // Immediate connection
         }
+        
+        // Schedule VPN
+        return scheduleVpn(config, name, username, password, startTimeUTC, endTimeUTC, bypassPackages);
+    }
+
+
+    /**
+     * Start VPN with optional scheduling (today's time)
+     * @param config OpenVPN configuration string
+     * @param username Authentication username
+     * @param password Authentication password
+     * @param name Profile name
+     * @param bypassPackages List of package names to bypass VPN
+     * @param connectHour Connect hour (0-23, -1 for immediate)
+     * @param connectMinute Connect minute (0-59)
+     * @param disconnectHour Disconnect hour (0-23, -1 for manual disconnect)
+     * @param disconnectMinute Disconnect minute (0-59)
+     * @return Schedule ID if scheduled, null if immediate connection
+     */
+    public String startVPN(String config, String username, String password, String name, 
+                          List<String> bypassPackages, int connectHour, int connectMinute, 
+                          int disconnectHour, int disconnectMinute) {
+        
+        // If no scheduling time provided, use original immediate connection
+        if (connectHour < 0) {
+            startVPN(config, username, password, name, bypassPackages);
+            return null;
+        }
+        
+        // Schedule VPN for today
+        return scheduleVpnToday(config, name, username, password, connectHour, connectMinute, 
+                               disconnectHour, disconnectMinute, bypassPackages);
     }
 
     @Override
@@ -80,6 +134,26 @@ public class VPNHelper extends Activity {
 
     public void stopVPN() {
         OpenVPNThread.stop();
+        
+        // Clear all previous schedules when disconnecting
+        if (vpnScheduler != null) {
+            List<VpnSchedule> schedules = vpnScheduler.getAllSchedules();
+            for (VpnSchedule schedule : schedules) {
+                vpnScheduler.cancelSchedule(schedule.getId());
+            }
+            Log.d("VPN", "Cleared all previous schedules");
+        }
+    }
+
+
+    // ========== INTERNAL SCHEDULING METHODS ==========
+
+    /**
+     * Internal method to schedule VPN
+     */
+    private String scheduleVpn(String config, String name, String username, String password,
+                             long startTimeUTC, long endTimeUTC, List<String> bypassPackages) {
+        return vpnScheduler.scheduleVpn(config, name, username, password, startTimeUTC, endTimeUTC, bypassPackages);
     }
 
     private void connect() {

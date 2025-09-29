@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application>
         <activity android:name=".VPNHelper"
             android:exported="true"
@@ -20,6 +24,12 @@
                 <action android:name="android.net.VpnService" />
             </intent-filter>
         </service>
+
+        <!-- VPN Scheduler Service -->
+        <service
+            android:name=".scheduling.VpnSchedulerService"
+            android:exported="false"
+            android:enabled="true" />
 
         <activity
             android:name=".LaunchVPN"
