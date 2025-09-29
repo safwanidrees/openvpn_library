@@ -40,3 +40,39 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }
+
+// Maven publishing configuration
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                // Publish the AAR artifact
+                artifact bundleReleaseAar
+                
+                groupId = 'com.github.safwanidrees'
+                artifactId = 'openvpn_library'
+                version = '1.0.6'
+                
+                pom {
+                    name = 'OpenVPN Library'
+                    description = 'Android OpenVPN library with scheduling capabilities'
+                    url = 'https://github.com/safwanidrees/openvpn_library'
+                    
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                    
+                    developers {
+                        developer {
+                            id = 'safwanidrees'
+                            name = 'Safwan Mamji'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
