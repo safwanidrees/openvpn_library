@@ -74,18 +74,64 @@ public class VpnSchedule implements Serializable {
     public void setBypassPackages(String bypassPackages) { this.bypassPackages = bypassPackages; }
     
     /**
+     * Get the next connect time for recurring schedules
+     * Since app always sends UTC time, we work with UTC timestamps
+     */
+    public long getNextConnectTime() {
+        if (!isRecurring) {
+            return connectTimeUTC;
+        }
+        
+        // For recurring schedules, calculate next occurrence
+        long currentTime = System.currentTimeMillis();
+        
+        // If connect time is in the future, use it
+        if (connectTimeUTC > currentTime) {
+            return connectTimeUTC;
+        }
+        
+        // Calculate next occurrence based on recurring days
+        Calendar connect = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        connect.setTimeInMillis(connectTimeUTC);
+        
+        Calendar now = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        now.setTimeInMillis(currentTime);
+        
+        // Find next occurrence within the next 7 days
+        for (int i = 0; i < 7; i++) {
+            Calendar next = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+            next.setTimeInMillis(connectTimeUTC);
+            next.add(Calendar.DAY_OF_YEAR, i);
+            
+            int dayOfWeek = next.get(Calendar.DAY_OF_WEEK);
+            int dayMask = 1 << (dayOfWeek - 1);
+            
+            if ((recurringDays & dayMask) != 0 && next.getTimeInMillis() > currentTime) {
+                return next.getTimeInMillis();
+            }
+        }
+        
+        // If no valid day found in next 7 days, return original time
+        return connectTimeUTC;
+    }
+    
+    /**
      * Check if schedule should trigger at given time
+     * Since app always sends UTC time, we work directly with UTC timestamps
      */
     public boolean shouldTriggerAt(long currentTimeUTC) {
         if (!isActive) return false;
         
-        Calendar current = Calendar.getInstance();
-        current.setTimeInMillis(currentTimeUTC);
-        
-        Calendar connect = Calendar.getInstance();
-        connect.setTimeInMillis(connectTimeUTC);
-        
+        // Since both currentTimeUTC and connectTimeUTC are in UTC, no timezone conversion needed
         if (isRecurring) {
+            // For recurring schedules, check if current day matches recurring days
+            // Convert UTC time to day of week for recurring logic
+            Calendar current = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+            current.setTimeInMillis(currentTimeUTC);
+            
+            Calendar connect = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+            connect.setTimeInMillis(connectTimeUTC);
+            
             // Check if current day matches recurring days
             int currentDayOfWeek = current.get(Calendar.DAY_OF_WEEK);
             int dayMask = 1 << (currentDayOfWeek - 1);
@@ -95,7 +141,7 @@ public class VpnSchedule implements Serializable {
             long timeDiff = Math.abs(currentTimeUTC - connectTimeUTC);
             return timeDiff <= 60000; // 1 minute tolerance
         } else {
-            // One-time schedule
+            // One-time schedule - direct UTC comparison
             long timeDiff = Math.abs(currentTimeUTC - connectTimeUTC);
             return timeDiff <= 60000; // 1 minute tolerance
         }
@@ -109,21 +155,4 @@ public class VpnSchedule implements Serializable {
         return currentTimeUTC >= disconnectTimeUTC;
     }
     
-    /**
-     * Get next connect time for recurring schedules
-     */
-    public long getNextConnectTime() {
-        if (!isRecurring) return connectTimeUTC;
-        
-        Calendar now = Calendar.getInstance();
-        Calendar next = Calendar.getInstance();
-        next.setTimeInMillis(connectTimeUTC);
-        
-        // Find next occurrence
-        while (next.getTimeInMillis() <= now.getTimeInMillis()) {
-            next.add(Calendar.DAY_OF_MONTH, 1);
-        }
-        
-        return next.getTimeInMillis();
-    }
 }

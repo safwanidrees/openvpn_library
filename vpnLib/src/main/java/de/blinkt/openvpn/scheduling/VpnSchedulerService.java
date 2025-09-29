@@ -57,6 +57,8 @@ public class VpnSchedulerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "VPN Scheduler Service onStartCommand called");
+        Log.d(TAG, "VPN Scheduler Service: Intent: " + intent);
+        Log.d(TAG, "VPN Scheduler Service: Flags: " + flags + ", StartId: " + startId);
         
         if (intent != null) {
             String action = intent.getAction();
@@ -64,6 +66,7 @@ public class VpnSchedulerService extends Service {
             String intentAction = intent.getStringExtra("action");
             
             Log.d(TAG, "VPN Scheduler received action: " + action + ", scheduleId: " + scheduleId + ", intentAction: " + intentAction);
+            Log.d(TAG, "VPN Scheduler: All intent extras: " + intent.getExtras());
             
             if (ACTION_SCHEDULE_CONNECT.equals(action)) {
                 Log.d(TAG, "VPN Scheduler: Handling scheduled connect for schedule: " + scheduleId);
@@ -153,6 +156,8 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Starting VPN connection for schedule: " + schedule.getName());
         Log.d(TAG, "VPN Scheduler: Config: " + schedule.getConfig());
         Log.d(TAG, "VPN Scheduler: Username: " + schedule.getUsername());
+        Log.d(TAG, "VPN Scheduler: Password: " + (schedule.getPassword() != null ? "[PROVIDED]" : "[NULL]"));
+        Log.d(TAG, "VPN Scheduler: Bypass packages: " + schedule.getBypassPackages());
         
         // Start VPN connection
         Intent vpnIntent = new Intent(this, OpenVPNService.class);
@@ -164,8 +169,25 @@ public class VpnSchedulerService extends Service {
         vpnIntent.putExtra("bypassPackages", schedule.getBypassPackages());
         
         Log.d(TAG, "VPN Scheduler: Sending VPN start intent to OpenVPNService");
-        startService(vpnIntent);
-        Log.d(TAG, "VPN Scheduler: VPN connection started successfully");
+        Log.d(TAG, "VPN Scheduler: Intent action: " + vpnIntent.getAction());
+        Log.d(TAG, "VPN Scheduler: Intent extras: " + vpnIntent.getExtras());
+        
+        try {
+            startService(vpnIntent);
+            Log.d(TAG, "VPN Scheduler: VPN connection started successfully");
+        } catch (SecurityException e) {
+            Log.e(TAG, "VPN Scheduler: Security error starting VPN service: " + e.getMessage());
+            Log.e(TAG, "VPN Scheduler: Check VPN permissions and service declarations");
+            e.printStackTrace();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "VPN Scheduler: Illegal state error starting VPN service: " + e.getMessage());
+            Log.e(TAG, "VPN Scheduler: Service may not be properly initialized");
+            e.printStackTrace();
+        } catch (Exception e) {
+            Log.e(TAG, "VPN Scheduler: Unexpected error starting VPN service: " + e.getMessage());
+            Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
+            e.printStackTrace();
+        }
         
         // Schedule disconnect if needed
         if (schedule.getDisconnectTimeUTC() > 0) {
@@ -194,7 +216,7 @@ public class VpnSchedulerService extends Service {
         
         PendingIntent pendingIntent = PendingIntent.getService(
             this,
-            schedule.getId().hashCode() + 1000, // Different request code for disconnect
+            getDisconnectRequestCode(schedule.getId()),
             disconnectIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -239,7 +261,7 @@ public class VpnSchedulerService extends Service {
         
         PendingIntent pendingIntent = PendingIntent.getService(
             this,
-            schedule.getId().hashCode(),
+            getConnectRequestCode(schedule.getId()),
             connectIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -248,8 +270,12 @@ public class VpnSchedulerService extends Service {
         long currentTime = System.currentTimeMillis();
         long timeUntilTrigger = triggerTime - currentTime;
         
-        Log.d(TAG, "VPN Scheduler: Current UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
-        Log.d(TAG, "VPN Scheduler: Trigger UTC time: " + triggerTime + " (" + new java.util.Date(triggerTime) + ")");
+        // Format UTC time properly
+        java.text.SimpleDateFormat utcFormat = new java.text.SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss.SSS 'UTC'");
+        utcFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        
+        Log.d(TAG, "VPN Scheduler: Current UTC time: " + currentTime + " (" + utcFormat.format(new java.util.Date(currentTime)) + ")");
+        Log.d(TAG, "VPN Scheduler: Trigger UTC time: " + triggerTime + " (" + utcFormat.format(new java.util.Date(triggerTime)) + ")");
         Log.d(TAG, "VPN Scheduler: Time until trigger: " + timeUntilTrigger + "ms (" + (timeUntilTrigger / 1000) + " seconds)");
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
@@ -271,6 +297,7 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: VPN scheduled successfully for: " + schedule.getId() + " at " + triggerTime);
     }
     
+    
     public void cancelSchedule(String scheduleId) {
         Log.d(TAG, "VPN Scheduler: Cancelling schedule: " + scheduleId);
         
@@ -281,7 +308,7 @@ public class VpnSchedulerService extends Service {
         
         PendingIntent connectPending = PendingIntent.getService(
             this,
-            scheduleId.hashCode(),
+            getConnectRequestCode(scheduleId),
             connectIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -292,7 +319,7 @@ public class VpnSchedulerService extends Service {
         
         PendingIntent disconnectPending = PendingIntent.getService(
             this,
-            scheduleId.hashCode() + 1000,
+            getDisconnectRequestCode(scheduleId),
             disconnectIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -339,6 +366,22 @@ public class VpnSchedulerService extends Service {
         return null;
     }
     
+    /**
+     * Get unique request code for connect alarms
+     */
+    private int getConnectRequestCode(String scheduleId) {
+        // Use positive hash code to avoid collisions
+        return Math.abs(scheduleId.hashCode());
+    }
+    
+    /**
+     * Get unique request code for disconnect alarms
+     */
+    private int getDisconnectRequestCode(String scheduleId) {
+        // Use larger offset to ensure no collision with connect codes
+        return Math.abs(scheduleId.hashCode()) + 10000;
+    }
+
     private void removeSchedule(String scheduleId) {
         List<VpnSchedule> schedules = getAllSchedules();
         
