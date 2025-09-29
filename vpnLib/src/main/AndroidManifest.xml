@@ -29,8 +29,7 @@
         <service
             android:name=".scheduling.VpnSchedulerService"
             android:exported="false"
-            android:enabled="true"
-            android:foregroundServiceType="specialUse" />
+            android:enabled="true" />
 
         <activity
             android:name=".LaunchVPN"

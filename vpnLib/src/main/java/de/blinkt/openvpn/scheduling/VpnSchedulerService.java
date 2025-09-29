@@ -82,12 +82,12 @@ public class VpnSchedulerService extends Service {
         }
         
         // Keep service running
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 14 (API 34)
             // Android 14+ requires explicit foreground service type
-            startForeground(NOTIFICATION_ID, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            startForeground(NOTIFICATION_ID, createNotification(), 0x00000080); // FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             // Android 10+ supports foreground service types but not required
-            startForeground(NOTIFICATION_ID, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            startForeground(NOTIFICATION_ID, createNotification(), 0x00000080); // FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         } else {
             startForeground(NOTIFICATION_ID, createNotification());
         }
