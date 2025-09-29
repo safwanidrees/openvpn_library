@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.net.VpnService;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -119,9 +120,30 @@ public class VPNHelper extends Activity {
             return null;
         }
         
+        // Calculate UTC times for today
+        java.util.Calendar today = java.util.Calendar.getInstance();
+        java.util.Calendar connectTime = java.util.Calendar.getInstance();
+        connectTime.set(java.util.Calendar.HOUR_OF_DAY, connectHour);
+        connectTime.set(java.util.Calendar.MINUTE, connectMinute);
+        connectTime.set(java.util.Calendar.SECOND, 0);
+        connectTime.set(java.util.Calendar.MILLISECOND, 0);
+        
+        java.util.Calendar disconnectTime = java.util.Calendar.getInstance();
+        disconnectTime.set(java.util.Calendar.HOUR_OF_DAY, disconnectHour);
+        disconnectTime.set(java.util.Calendar.MINUTE, disconnectMinute);
+        disconnectTime.set(java.util.Calendar.SECOND, 0);
+        disconnectTime.set(java.util.Calendar.MILLISECOND, 0);
+        
+        // If disconnect time is before connect time, assume next day
+        if (disconnectTime.getTimeInMillis() <= connectTime.getTimeInMillis()) {
+            disconnectTime.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        }
+        
         // Schedule VPN for today
-        return scheduleVpnToday(config, name, username, password, connectHour, connectMinute, 
-                               disconnectHour, disconnectMinute, bypassPackages);
+        return scheduleVpn(config, name, username, password, 
+                         connectTime.getTimeInMillis(), 
+                         disconnectTime.getTimeInMillis(), 
+                         bypassPackages);
     }
 
     @Override

@@ -161,11 +161,19 @@ public class VpnSchedulerService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            schedule.getDisconnectTimeUTC(),
-            pendingIntent
-        );
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                schedule.getDisconnectTimeUTC(),
+                pendingIntent
+            );
+        } else {
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                schedule.getDisconnectTimeUTC(),
+                pendingIntent
+            );
+        }
         
         Log.d(TAG, "Scheduled disconnect for: " + schedule.getId() + " at " + schedule.getDisconnectTimeUTC());
     }
@@ -188,11 +196,19 @@ public class VpnSchedulerService extends Service {
         
         long triggerTime = schedule.isRecurring() ? schedule.getNextConnectTime() : schedule.getConnectTimeUTC();
         
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            triggerTime,
-            pendingIntent
-        );
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime,
+                pendingIntent
+            );
+        } else {
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime,
+                pendingIntent
+            );
+        }
         
         Log.d(TAG, "Scheduled VPN for: " + schedule.getId() + " at " + triggerTime);
     }
@@ -262,7 +278,15 @@ public class VpnSchedulerService extends Service {
     
     private void removeSchedule(String scheduleId) {
         List<VpnSchedule> schedules = getAllSchedules();
-        schedules.removeIf(schedule -> schedule.getId().equals(scheduleId));
+        
+        // Use iterator to remove items for API level compatibility
+        java.util.Iterator<VpnSchedule> iterator = schedules.iterator();
+        while (iterator.hasNext()) {
+            VpnSchedule schedule = iterator.next();
+            if (schedule.getId().equals(scheduleId)) {
+                iterator.remove();
+            }
+        }
         
         String json = gson.toJson(schedules);
         preferences.edit().putString("schedules", json).apply();
