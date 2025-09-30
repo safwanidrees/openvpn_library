@@ -98,7 +98,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private static final int PRIORITY_DEFAULT = 0;
     private static final int PRIORITY_MAX = 2;
     private static boolean mNotificationAlwaysVisible = false;
-    private static boolean mHideAllNotifications = true;
+    private static boolean mHideAllNotifications = false;
     private static Class<? extends Activity> mNotificationActivityClass;
     private final Vector<String> mDnslist = new Vector<>();
     private final NetworkSpace mRoutes = new NetworkSpace();
@@ -277,11 +277,15 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         ProfileManager.setConntectedVpnProfileDisconnected(this);
         mOpenVPNThread = null;
         if (!mStarting) {
-            stopForeground(!mNotificationAlwaysVisible);
+            // Only stop foreground service if we're actually disconnecting
+            // Don't stop it if VPN is still connected
+            if (!isConnected()) {
+                stopForeground(!mNotificationAlwaysVisible);
 
-            if (!mNotificationAlwaysVisible) {
-                stopSelf();
-                VpnStatus.removeStateListener(this);
+                if (!mNotificationAlwaysVisible) {
+                    stopSelf();
+                    VpnStatus.removeStateListener(this);
+                }
             }
         }
     }
@@ -292,6 +296,15 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
                 channelName, NotificationManager.IMPORTANCE_NONE);
         chan.setLightColor(Color.BLUE);
         chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+        
+        // For hidden VPN channel, make it even more unobtrusive
+        if (channelId.equals("hidden_vpn_channel")) {
+            chan.setImportance(NotificationManager.IMPORTANCE_MIN);
+            chan.setShowBadge(false);
+            chan.setSound(null, null);
+            chan.setVibrationPattern(null);
+        }
+        
         NotificationManager service = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         service.createNotificationChannel(chan);
         return channelId;
@@ -299,10 +312,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     private void showNotification(final String msg, String tickerText, @NonNull String channel,
                                   long when, ConnectionStatus status, Intent intent) {
-        // Hide all notifications (if enabled)
-        if (mHideAllNotifications) {
-            return;
-        }
+        // Show all notifications but hide disconnect button
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if(channel.equals(NOTIFICATION_CHANNEL_BG_ID)){
@@ -345,10 +355,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         if (when != 0) nbuilder.setWhen(when);
 
         jbNotificationExtras(priority, nbuilder);
-        // Only add disconnect button when VPN is not connected
-        if (status != ConnectionStatus.LEVEL_CONNECTED) {
-            addVpnActionsToNotification(nbuilder);
-        }
+        // Disconnect button is hidden from all notifications
+        // addVpnActionsToNotification(nbuilder); // Commented out to hide disconnect button
        
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
@@ -1245,10 +1253,12 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             if (level == LEVEL_CONNECTED) {
                 mDisplayBytecount = true;
                 mConnecttime = System.currentTimeMillis();
+                flag = true; // Set flag to true when connected
                 if (!runningOnAndroidTV())
                     channel = NOTIFICATION_CHANNEL_BG_ID;
             } else {
                 mDisplayBytecount = false;
+                flag = false; // Set flag to false when not connected
             }
 
             // Other notifications are shown,
@@ -1472,6 +1482,15 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
      */
     public static void setHideAllNotifications(boolean hideNotification) {
         mHideAllNotifications = hideNotification;
+    }
+    
+    /**
+     * Set whether to hide disconnect button from notifications
+     * @param hideDisconnectButton true to hide disconnect button, false to show it
+     */
+    public static void setHideDisconnectButton(boolean hideDisconnectButton) {
+        // This is now handled by commenting out the addVpnActionsToNotification call
+        // The disconnect button is hidden by default
     }
 
     public boolean isConnected() {

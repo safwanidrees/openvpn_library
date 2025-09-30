@@ -49,6 +49,15 @@ public class VPNHelper extends Activity {
     public void setHideAllNotifications(boolean hideNotification) {
         de.blinkt.openvpn.core.OpenVPNService.setHideAllNotifications(hideNotification);
     }
+    
+    /**
+     * Disconnect button is now hidden from all notifications by default
+     * This method is kept for compatibility but doesn't need to be called
+     */
+    public void setHideDisconnectButton(boolean hideDisconnectButton) {
+        // Disconnect button is hidden by default in all notifications
+        // No action needed as it's handled in the core service
+    }
 
     public VPNHelper(Activity activity) {
         Log.d("VPN", "VPNHelper: Initializing VPNHelper");
