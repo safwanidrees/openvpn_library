@@ -15,6 +15,7 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -34,13 +35,17 @@ public class VpnSchedulerService extends Service {
     private static final String TAG = "VpnSchedulerService";
     private static final String CHANNEL_ID = "vpn_scheduler_channel";
     private static final int NOTIFICATION_ID = 1001;
+    private static final String FLAG_PREFS = "vpn_scheduler_flags";
+    private static final String KEY_SCHEDULED_DISCONNECT = "scheduled_disconnect";
     
     public static final String ACTION_SCHEDULE_CONNECT = "de.blinkt.openvpn.SCHEDULE_CONNECT";
     public static final String ACTION_SCHEDULE_DISCONNECT = "de.blinkt.openvpn.SCHEDULE_DISCONNECT";
     public static final String EXTRA_SCHEDULE_ID = "schedule_id";
+    public static final String ACTION_SCHEDULED_EVENT = "de.blinkt.openvpn.SCHEDULED_EVENT"; // local broadcast
     
     private AlarmManager alarmManager;
     private SharedPreferences preferences;
+    private SharedPreferences flagPreferences;
     private Gson gson;
     
     @Override
@@ -49,6 +54,7 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler Service created");
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         preferences = getSharedPreferences("vpn_schedules", Context.MODE_PRIVATE);
+        flagPreferences = getSharedPreferences(FLAG_PREFS, Context.MODE_PRIVATE);
         gson = new Gson();
         createNotificationChannel();
         Log.d(TAG, "VPN Scheduler Service initialized successfully");
@@ -147,6 +153,17 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Handling scheduled connect for: " + scheduleId);
         Log.d(TAG, "VPN Scheduler: Triggered at UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
         
+        // Clear scheduled-disconnect suppression flag and notify app
+        try {
+            flagPreferences.edit().putBoolean(KEY_SCHEDULED_DISCONNECT, false).apply();
+            Intent broadcast = new Intent(ACTION_SCHEDULED_EVENT);
+            broadcast.putExtra("type", "connect");
+            LocalBroadcastManager.getInstance(this).sendBroadcast(broadcast);
+            Log.d(TAG, "VPN Scheduler: Broadcasted scheduled connect event");
+        } catch (Exception e) {
+            Log.w(TAG, "VPN Scheduler: Failed to broadcast scheduled connect event: " + e.getMessage());
+        }
+
         VpnSchedule schedule = getSchedule(scheduleId);
         if (schedule == null) {
             Log.e(TAG, "VPN Scheduler: Schedule not found: " + scheduleId);
@@ -245,6 +262,17 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Handling scheduled disconnect for: " + scheduleId);
         Log.d(TAG, "VPN Scheduler: Disconnect triggered at UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
         
+        // Set scheduled-disconnect suppression flag and notify app
+        try {
+            flagPreferences.edit().putBoolean(KEY_SCHEDULED_DISCONNECT, true).apply();
+            Intent broadcast = new Intent(ACTION_SCHEDULED_EVENT);
+            broadcast.putExtra("type", "disconnect");
+            LocalBroadcastManager.getInstance(this).sendBroadcast(broadcast);
+            Log.d(TAG, "VPN Scheduler: Broadcasted scheduled disconnect event");
+        } catch (Exception e) {
+            Log.w(TAG, "VPN Scheduler: Failed to broadcast scheduled disconnect event: " + e.getMessage());
+        }
+
         // Stop VPN connection using the same method as normal disconnect
         Log.d(TAG, "VPN Scheduler: Stopping VPN using OpenVPNThread.stop()");
         try {
