@@ -98,7 +98,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private static final int PRIORITY_DEFAULT = 0;
     private static final int PRIORITY_MAX = 2;
     private static boolean mNotificationAlwaysVisible = false;
-    private static boolean mHideNotificationWhenConnected = false;
+    private static boolean mHideAllNotifications = true;
     private static Class<? extends Activity> mNotificationActivityClass;
     private final Vector<String> mDnslist = new Vector<>();
     private final NetworkSpace mRoutes = new NetworkSpace();
@@ -299,8 +299,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     private void showNotification(final String msg, String tickerText, @NonNull String channel,
                                   long when, ConnectionStatus status, Intent intent) {
-        // Hide notification when VPN is connected (if enabled)
-        if (status == ConnectionStatus.LEVEL_CONNECTED && mHideNotificationWhenConnected) {
+        // Hide all notifications (if enabled)
+        if (mHideAllNotifications) {
             return;
         }
         
@@ -1467,11 +1467,11 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     }
     
     /**
-     * Set whether to hide notifications when VPN is connected
-     * @param hideNotification true to hide notifications when connected, false to show them
+     * Set whether to hide all VPN notifications
+     * @param hideNotification true to hide all notifications, false to show them
      */
-    public static void setHideNotificationWhenConnected(boolean hideNotification) {
-        mHideNotificationWhenConnected = hideNotification;
+    public static void setHideAllNotifications(boolean hideNotification) {
+        mHideAllNotifications = hideNotification;
     }
 
     public boolean isConnected() {
