@@ -68,7 +68,7 @@ public class VPNHelper extends Activity {
 
 
     public void startVPN(String config, String username, String password, String name, List<String> bypass) {
-        startVPN(config, username, password, name, bypass, 0, 0); // Default to immediate
+        startVPN(config, username, password, name, bypass, 0L, 0L, null, null, null, 0); // Default to immediate
     }
 
     /**
@@ -107,7 +107,7 @@ public class VPNHelper extends Activity {
             // Try to parse icon resource if provided
             if (notificationIcon != null && !notificationIcon.isEmpty()) {
                 try {
-                    iconRes = context.getResources().getIdentifier(notificationIcon, "drawable", context.getPackageName());
+                    iconRes = activity.getResources().getIdentifier(notificationIcon, "drawable", activity.getPackageName());
                     if (iconRes == 0) {
                         Log.w("VPN", "VPNHelper: Icon resource not found: " + notificationIcon + ", using default");
                         iconRes = R.drawable.ic_notification;
@@ -218,13 +218,13 @@ public class VPNHelper extends Activity {
         
         // Set manual-disconnect suppression flag and notify app (same as scheduled disconnect)
         try {
-            android.content.SharedPreferences flagPrefs = context.getSharedPreferences("vpn_scheduler_flags", android.content.Context.MODE_PRIVATE);
+            android.content.SharedPreferences flagPrefs = activity.getSharedPreferences("vpn_scheduler_flags", android.content.Context.MODE_PRIVATE);
             flagPrefs.edit().putBoolean("scheduled_disconnect", true).apply();
             
             // Broadcast manual disconnect event to app
             android.content.Intent broadcast = new android.content.Intent("de.blinkt.openvpn.SCHEDULED_EVENT");
             broadcast.putExtra("type", "disconnect");
-            android.support.v4.content.LocalBroadcastManager.getInstance(context).sendBroadcast(broadcast);
+            LocalBroadcastManager.getInstance(activity).sendBroadcast(broadcast);
             Log.d("VPN", "Broadcasted manual disconnect event");
         } catch (Exception e) {
             Log.w("VPN", "Failed to broadcast manual disconnect event: " + e.getMessage());
