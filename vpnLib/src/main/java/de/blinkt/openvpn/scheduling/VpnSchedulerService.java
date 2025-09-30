@@ -210,14 +210,17 @@ public class VpnSchedulerService extends Service {
         
         Log.d(TAG, "VPN Scheduler: All validation checks passed");
         
-        // Clear all existing schedules for fresh start (prevent conflicts)
-        Log.d(TAG, "VPN Scheduler: Clearing all existing schedules for fresh start");
+        // Clear other existing schedules for fresh start (prevent conflicts)
+        Log.d(TAG, "VPN Scheduler: Clearing other existing schedules for fresh start");
         List<VpnSchedule> existingSchedules = getAllSchedules();
         for (VpnSchedule existingSchedule : existingSchedules) {
-            cancelSchedule(existingSchedule.getId());
-            Log.d(TAG, "VPN Scheduler: Cancelled existing schedule: " + existingSchedule.getId());
+            // Don't clear the current schedule - we need it for disconnect time
+            if (!existingSchedule.getId().equals(scheduleId)) {
+                cancelSchedule(existingSchedule.getId());
+                Log.d(TAG, "VPN Scheduler: Cancelled other schedule: " + existingSchedule.getId());
+            }
         }
-        Log.d(TAG, "VPN Scheduler: Cleared " + existingSchedules.size() + " existing schedules");
+        Log.d(TAG, "VPN Scheduler: Cleared other schedules, keeping current: " + scheduleId);
         
         // Start VPN connection using the same method as normal connection
         Log.d(TAG, "VPN Scheduler: Starting VPN using OpenVpnApi.startVpn()");
