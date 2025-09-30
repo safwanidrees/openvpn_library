@@ -98,6 +98,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private static final int PRIORITY_DEFAULT = 0;
     private static final int PRIORITY_MAX = 2;
     private static boolean mNotificationAlwaysVisible = false;
+    private static boolean mHideNotificationWhenConnected = false;
     private static Class<? extends Activity> mNotificationActivityClass;
     private final Vector<String> mDnslist = new Vector<>();
     private final NetworkSpace mRoutes = new NetworkSpace();
@@ -298,6 +299,11 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     private void showNotification(final String msg, String tickerText, @NonNull String channel,
                                   long when, ConnectionStatus status, Intent intent) {
+        // Hide notification when VPN is connected (if enabled)
+        if (status == ConnectionStatus.LEVEL_CONNECTED && mHideNotificationWhenConnected) {
+            return;
+        }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if(channel.equals(NOTIFICATION_CHANNEL_BG_ID)){
                 channel = createNotificationChannel(channel, getAppName(this) + " VPN Background");
@@ -339,7 +345,10 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         if (when != 0) nbuilder.setWhen(when);
 
         jbNotificationExtras(priority, nbuilder);
-        addVpnActionsToNotification(nbuilder);
+        // Only add disconnect button when VPN is not connected
+        if (status != ConnectionStatus.LEVEL_CONNECTED) {
+            addVpnActionsToNotification(nbuilder);
+        }
        
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
@@ -1447,6 +1456,22 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     public static void setDefaultStatus() {
         state = "idle";
+    }
+    
+    /**
+     * Set whether notifications should be shown when VPN is connected
+     * @param showNotification true to show notifications, false to hide them
+     */
+    public static void setShowNotificationWhenConnected(boolean showNotification) {
+        mNotificationAlwaysVisible = !showNotification;
+    }
+    
+    /**
+     * Set whether to hide notifications when VPN is connected
+     * @param hideNotification true to hide notifications when connected, false to show them
+     */
+    public static void setHideNotificationWhenConnected(boolean hideNotification) {
+        mHideNotificationWhenConnected = hideNotification;
     }
 
     public boolean isConnected() {

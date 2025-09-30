@@ -41,6 +41,14 @@ public class VPNHelper extends Activity {
     public boolean isConnected(){
         return vpnStart;
     }
+    
+    /**
+     * Set whether to hide notifications when VPN is connected
+     * @param hideNotification true to hide notifications when connected, false to show them
+     */
+    public void setHideNotificationWhenConnected(boolean hideNotification) {
+        de.blinkt.openvpn.core.OpenVPNService.setHideNotificationWhenConnected(hideNotification);
+    }
 
     public VPNHelper(Activity activity) {
         Log.d("VPN", "VPNHelper: Initializing VPNHelper");
