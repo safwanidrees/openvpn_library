@@ -15,6 +15,11 @@ public class VpnScheduler {
     
     private Context context;
     private VpnSchedulerService schedulerService;
+    private static final String PREFS = "vpn_scheduler_prefs";
+    private static final String KEY_NOTIF_TITLE = "notif_title";
+    private static final String KEY_NOTIF_TEXT = "notif_text";
+    private static final String KEY_NOTIF_ICON = "notif_icon";
+    private static final String KEY_NOTIF_ID = "notif_id";
     
     public VpnScheduler(Context context) {
         this.context = context;
@@ -98,4 +103,25 @@ public class VpnScheduler {
         serviceIntent.putExtra("schedule", schedule);
         context.startService(serviceIntent);
     }
+
+    /**
+     * Configure notification appearance for the scheduler foreground service.
+     * Call from app before scheduling.
+     * @param notificationId Notification ID
+     * @param title Notification title
+     * @param text Notification text/description
+     * @param smallIconResId Resource id for small icon (e.g., R.drawable.ic_notification)
+     */
+    public void configureNotification(String notificationId, String title, String text, int smallIconResId) {
+        android.content.SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        sp.edit()
+          .putString(KEY_NOTIF_TITLE, title)
+          .putString(KEY_NOTIF_TEXT, text)
+          .putInt(KEY_NOTIF_ICON, smallIconResId)
+          .putInt(KEY_NOTIF_ID, notificationId)
+          .apply();
+        // Nudge service to refresh if running
+        startSchedulerService();
+    }
+ 
 }

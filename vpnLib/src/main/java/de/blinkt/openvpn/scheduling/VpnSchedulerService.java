@@ -34,7 +34,7 @@ import de.blinkt.openvpn.core.OpenVPNService;
 public class VpnSchedulerService extends Service {
     private static final String TAG = "VpnSchedulerService";
     private static final String CHANNEL_ID = "vpn_scheduler_channel";
-    private static final int NOTIFICATION_ID = 1001;
+    private static final int NOTIFICATION_ID = 1001; // default; can be overridden via prefs
     private static final String FLAG_PREFS = "vpn_scheduler_flags";
     private static final String KEY_SCHEDULED_DISCONNECT = "scheduled_disconnect";
     
@@ -106,14 +106,14 @@ public class VpnSchedulerService extends Service {
         if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 14 (API 34)
             // Android 14+ requires explicit foreground service type
             Log.d(TAG, "VPN Scheduler: Starting foreground service with dataSync type (Android 14+)");
-            startForeground(NOTIFICATION_ID, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            startForeground(getNotificationIdFromPrefs(), createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             // Android 10+ supports foreground service types but not required
             Log.d(TAG, "VPN Scheduler: Starting foreground service with dataSync type (Android 10+)");
-            startForeground(NOTIFICATION_ID, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            startForeground(getNotificationIdFromPrefs(), createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
             Log.d(TAG, "VPN Scheduler: Starting foreground service (Android 9 and below)");
-            startForeground(NOTIFICATION_ID, createNotification());
+            startForeground(getNotificationIdFromPrefs(), createNotification());
         }
         Log.d(TAG, "VPN Scheduler: Foreground service started successfully");
         return START_STICKY;
@@ -140,10 +140,16 @@ public class VpnSchedulerService extends Service {
     }
     
     private Notification createNotification() {
+        // Load configurable notification values from prefs
+        android.content.SharedPreferences sp = getSharedPreferences("vpn_scheduler_prefs", Context.MODE_PRIVATE);
+        String title = sp.getString("notif_title", "VPN Scheduler");
+        String text = sp.getString("notif_text", "Monitoring scheduled VPN connections");
+        int iconRes = sp.getInt("notif_icon", R.drawable.ic_notification);
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("VPN Scheduler")
-                .setContentText("Monitoring scheduled VPN connections")
-                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setSmallIcon(iconRes)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
     }
@@ -293,6 +299,9 @@ public class VpnSchedulerService extends Service {
             Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
             e.printStackTrace();
         }
+
+        // Stop scheduler foreground service if no schedules remain
+        maybeStopSchedulerIfIdle();
     }
     
     private void scheduleDisconnect(VpnSchedule schedule) {
@@ -420,6 +429,9 @@ public class VpnSchedulerService extends Service {
         removeSchedule(scheduleId);
         
         Log.d(TAG, "VPN Scheduler: Schedule cancelled successfully: " + scheduleId);
+
+        // Stop scheduler foreground service if no schedules remain
+        maybeStopSchedulerIfIdle();
     }
     
     private void saveSchedule(VpnSchedule schedule) {
@@ -488,5 +500,32 @@ public class VpnSchedulerService extends Service {
         String json = preferences.getString("schedules", "[]");
         Type listType = new TypeToken<List<VpnSchedule>>(){}.getType();
         return gson.fromJson(json, listType);
+    }
+
+    /**
+     * Stop foreground scheduler service when there are no pending schedules
+     */
+    private void maybeStopSchedulerIfIdle() {
+        try {
+            List<VpnSchedule> schedules = getAllSchedules();
+            if (schedules == null || schedules.isEmpty()) {
+                Log.d(TAG, "VPN Scheduler: No schedules remain - stopping foreground service");
+                stopForeground(true);
+                stopSelf();
+            } else {
+                Log.d(TAG, "VPN Scheduler: Remaining schedules count: " + schedules.size());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "VPN Scheduler: Failed to stop service when idle: " + e.getMessage());
+        }
+    }
+
+    private int getNotificationIdFromPrefs() {
+        try {
+            android.content.SharedPreferences sp = getSharedPreferences("vpn_scheduler_prefs", Context.MODE_PRIVATE);
+            return sp.getInt("notif_id", NOTIFICATION_ID);
+        } catch (Exception e) {
+            return NOTIFICATION_ID;
+        }
     }
 }
