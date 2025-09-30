@@ -112,7 +112,7 @@ public class VpnScheduler {
      * @param text Notification text/description
      * @param smallIconResId Resource id for small icon (e.g., R.drawable.ic_notification)
      */
-    public void configureNotification(String notificationId, String title, String text, int smallIconResId) {
+    public void configureNotification(int notificationId, String title, String text, int smallIconResId) {
         android.content.SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         sp.edit()
           .putString(KEY_NOTIF_TITLE, title)
