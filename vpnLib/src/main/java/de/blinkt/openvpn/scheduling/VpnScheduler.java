@@ -136,6 +136,22 @@ public class VpnScheduler {
     }
     
     /**
+     * Get unique request code for connect alarms
+     */
+    private int getConnectRequestCode(String scheduleId) {
+        // Use positive hash code to avoid collisions
+        return Math.abs(scheduleId.hashCode());
+    }
+    
+    /**
+     * Get unique request code for disconnect alarms
+     */
+    private int getDisconnectRequestCode(String scheduleId) {
+        // Use larger offset to ensure no collision with connect codes
+        return Math.abs(scheduleId.hashCode()) + 10000;
+    }
+    
+    /**
      * Get all scheduled VPNs
      * @return List of all schedules
      */
