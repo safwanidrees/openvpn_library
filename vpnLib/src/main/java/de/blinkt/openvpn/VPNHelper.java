@@ -82,7 +82,7 @@ public class VPNHelper extends Activity {
      * @param endTimeUTC End time in UTC milliseconds (0 for manual disconnect)
      * @return Schedule ID if scheduled, null if immediate
      */
-    public String startVPN(String config, String username, String password, String name, List<String> bypassPackages, long startTimeUTC, long endTimeUTC) {
+    public String startVPN(String config, String username, String password, String name, List<String> bypassPackages, long startTimeUTC, long endTimeUTC, String notificationTitle, String notificationText, String notificationIcon, int notificationId) {
         Log.d("VPN", "VPNHelper: startVPN() called with scheduling");
         Log.d("VPN", "VPNHelper: Config: " + config);
         Log.d("VPN", "VPNHelper: Name: " + name);
@@ -97,6 +97,31 @@ public class VPNHelper extends Activity {
         VPNHelper.name = name;
         VPNHelper.bypassPackages = bypassPackages;
 
+        // Configure scheduler notification (use provided values or defaults)
+        if (vpnScheduler != null) {
+            String title = (notificationTitle != null && !notificationTitle.isEmpty()) ? notificationTitle : "VPN Scheduler";
+            String text = (notificationText != null && !notificationText.isEmpty()) ? notificationText : "Monitoring scheduled VPN connections";
+            int iconRes = R.drawable.ic_notification; // Default icon
+            int notifId = (notificationId > 0) ? notificationId : 1001; // Default ID
+            
+            // Try to parse icon resource if provided
+            if (notificationIcon != null && !notificationIcon.isEmpty()) {
+                try {
+                    iconRes = context.getResources().getIdentifier(notificationIcon, "drawable", context.getPackageName());
+                    if (iconRes == 0) {
+                        Log.w("VPN", "VPNHelper: Icon resource not found: " + notificationIcon + ", using default");
+                        iconRes = R.drawable.ic_notification;
+                    }
+                } catch (Exception e) {
+                    Log.w("VPN", "VPNHelper: Error parsing icon resource: " + e.getMessage() + ", using default");
+                    iconRes = R.drawable.ic_notification;
+                }
+            }
+            
+            vpnScheduler.configureNotification(notifId, title, text, iconRes);
+            Log.d("VPN", "VPNHelper: Configured scheduler notification - ID: " + notifId + ", Title: " + title + ", Text: " + text);
+        }
+        
         // If no scheduling time provided, use original immediate connection
         if (startTimeUTC <= 0) {
             Log.d("VPN", "VPNHelper: No scheduling time provided, starting immediate connection");
@@ -191,6 +216,20 @@ public class VPNHelper extends Activity {
     public void stopVPN() {
         OpenVPNThread.stop();
         
+        // Set manual-disconnect suppression flag and notify app (same as scheduled disconnect)
+        try {
+            android.content.SharedPreferences flagPrefs = context.getSharedPreferences("vpn_scheduler_flags", android.content.Context.MODE_PRIVATE);
+            flagPrefs.edit().putBoolean("scheduled_disconnect", true).apply();
+            
+            // Broadcast manual disconnect event to app
+            android.content.Intent broadcast = new android.content.Intent("de.blinkt.openvpn.SCHEDULED_EVENT");
+            broadcast.putExtra("type", "disconnect");
+            android.support.v4.content.LocalBroadcastManager.getInstance(context).sendBroadcast(broadcast);
+            Log.d("VPN", "Broadcasted manual disconnect event");
+        } catch (Exception e) {
+            Log.w("VPN", "Failed to broadcast manual disconnect event: " + e.getMessage());
+        }
+        
         // Clear all previous schedules when disconnecting
         if (vpnScheduler != null) {
             List<VpnSchedule> schedules = vpnScheduler.getAllSchedules();
@@ -198,6 +237,9 @@ public class VPNHelper extends Activity {
                 vpnScheduler.cancelSchedule(schedule.getId());
             }
             Log.d("VPN", "Cleared all previous schedules");
+            
+            // Trigger scheduler service to check if it should stop
+            vpnScheduler.triggerIdleCheck();
         }
     }
 

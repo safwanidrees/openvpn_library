@@ -123,5 +123,13 @@ public class VpnScheduler {
         // Nudge service to refresh if running
         startSchedulerService();
     }
- 
+    
+    /**
+     * Trigger the scheduler service to check if it should stop (when no schedules remain)
+     */
+    public void triggerIdleCheck() {
+        Intent serviceIntent = new Intent(context, VpnSchedulerService.class);
+        serviceIntent.putExtra("action", "check_idle");
+        context.startService(serviceIntent);
+    }
 }

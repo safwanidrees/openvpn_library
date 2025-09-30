@@ -98,6 +98,9 @@ public class VpnSchedulerService extends Service {
                     Log.d(TAG, "VPN Scheduler: Updating schedule: " + schedule.getName());
                     saveSchedule(schedule);
                 }
+            } else if ("check_idle".equals(intentAction)) {
+                Log.d(TAG, "VPN Scheduler: Checking if service should stop (idle check)");
+                maybeStopSchedulerIfIdle();
             }
         }
         
