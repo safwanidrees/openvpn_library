@@ -108,7 +108,7 @@ public class VpnScheduler {
     }
     
     private void removeScheduleDirect(String scheduleId) {
-        android.content.SharedPreferences prefs = context.getSharedPreferences("vpn_scheduler", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = context.getSharedPreferences("vpn_schedules", android.content.Context.MODE_PRIVATE);
         String json = prefs.getString("schedules", "[]");
         
         com.google.gson.Gson gson = new com.google.gson.Gson();

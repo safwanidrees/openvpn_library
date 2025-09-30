@@ -224,7 +224,13 @@ public class VPNHelper extends Activity {
     }
 
     public void stopVPN() {
-        OpenVPNThread.stop();
+        try {
+            OpenVPNThread.stop();
+            Log.d("VPN", "VPN stopped successfully");
+        } catch (Exception e) {
+            Log.w("VPN", "Error stopping VPN (may not be running): " + e.getMessage());
+            // Continue with cleanup even if VPN stop fails
+        }
         
         // Set manual-disconnect suppression flag and notify app (same as scheduled disconnect)
         try {
