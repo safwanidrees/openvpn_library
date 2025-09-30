@@ -64,6 +64,78 @@ public class VpnScheduler {
     }
     
     /**
+     * Cancel schedule directly without sending intent (for internal use)
+     * @param scheduleId Schedule ID to cancel
+     */
+    public void cancelScheduleDirect(String scheduleId) {
+        Log.d(TAG, "Cancelling schedule directly: " + scheduleId);
+        
+        // Cancel alarms directly
+        android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(android.content.Context.ALARM_SERVICE);
+        
+        android.content.Intent connectIntent = new android.content.Intent(context, VpnSchedulerService.class);
+        connectIntent.setAction("de.blinkt.openvpn.SCHEDULE_CONNECT");
+        connectIntent.putExtra("schedule_id", scheduleId);
+        
+        android.app.PendingIntent connectPending = android.app.PendingIntent.getService(
+            context,
+            getConnectRequestCode(scheduleId),
+            connectIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        android.content.Intent disconnectIntent = new android.content.Intent(context, VpnSchedulerService.class);
+        disconnectIntent.setAction("de.blinkt.openvpn.SCHEDULE_DISCONNECT");
+        disconnectIntent.putExtra("schedule_id", scheduleId);
+        
+        android.app.PendingIntent disconnectPending = android.app.PendingIntent.getService(
+            context,
+            getDisconnectRequestCode(scheduleId),
+            disconnectIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Log.d(TAG, "Cancelling connect alarm for schedule: " + scheduleId);
+        alarmManager.cancel(connectPending);
+        Log.d(TAG, "Cancelling disconnect alarm for schedule: " + scheduleId);
+        alarmManager.cancel(disconnectPending);
+        
+        // Remove from storage directly
+        Log.d(TAG, "Removing schedule from storage: " + scheduleId);
+        removeScheduleDirect(scheduleId);
+        
+        Log.d(TAG, "Schedule cancelled directly: " + scheduleId);
+    }
+    
+    private void removeScheduleDirect(String scheduleId) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("vpn_scheduler", android.content.Context.MODE_PRIVATE);
+        String json = prefs.getString("schedules", "[]");
+        
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<java.util.List<VpnSchedule>>(){}.getType();
+        java.util.List<VpnSchedule> schedules = gson.fromJson(json, listType);
+        
+        if (schedules == null) {
+            schedules = new java.util.ArrayList<>();
+        }
+        
+        // Remove the schedule
+        java.util.Iterator<VpnSchedule> iterator = schedules.iterator();
+        while (iterator.hasNext()) {
+            VpnSchedule schedule = iterator.next();
+            if (schedule.getId().equals(scheduleId)) {
+                iterator.remove();
+                break;
+            }
+        }
+        
+        // Save back to preferences
+        String updatedJson = gson.toJson(schedules);
+        prefs.edit().putString("schedules", updatedJson).apply();
+        Log.d(TAG, "Removed schedule from storage: " + scheduleId);
+    }
+    
+    /**
      * Get all scheduled VPNs
      * @return List of all schedules
      */

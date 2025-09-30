@@ -243,8 +243,10 @@ public class VPNHelper extends Activity {
         // Clear all previous schedules when disconnecting
         if (vpnScheduler != null) {
             List<VpnSchedule> schedules = vpnScheduler.getAllSchedules();
+            Log.d("VPN", "Found " + schedules.size() + " schedules to clear");
             for (VpnSchedule schedule : schedules) {
-                vpnScheduler.cancelSchedule(schedule.getId());
+                Log.d("VPN", "Cancelling schedule directly: " + schedule.getId());
+                vpnScheduler.cancelScheduleDirect(schedule.getId());
             }
             Log.d("VPN", "Cleared all previous schedules");
             
