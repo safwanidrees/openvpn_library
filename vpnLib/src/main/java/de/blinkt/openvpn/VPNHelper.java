@@ -70,6 +70,16 @@ public class VPNHelper extends Activity {
     public void startVPN(String config, String username, String password, String name, List<String> bypass) {
         startVPN(config, username, password, name, bypass, 0L, 0L, null, null, null, 0); // Default to immediate
     }
+    
+    // Overload for app compatibility - 7 parameters (long, long)
+    public String startVPN(String config, String username, String password, String name, List<String> bypassPackages, long startTimeUTC, long endTimeUTC) {
+        return startVPN(config, username, password, name, bypassPackages, startTimeUTC, endTimeUTC, null, null, null, 0);
+    }
+    
+    // Overload for app compatibility - 7 parameters (int, int) 
+    public String startVPN(String config, String username, String password, String name, List<String> bypassPackages, int startTimeUTC, int endTimeUTC) {
+        return startVPN(config, username, password, name, bypassPackages, (long)startTimeUTC, (long)endTimeUTC, null, null, null, 0);
+    }
 
     /**
      * Single function to start VPN - immediate or scheduled
