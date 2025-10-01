@@ -48,7 +48,6 @@ public class VpnScheduler {
         startSchedulerService();
         scheduleVpnInternal(schedule);
         
-        Log.d(TAG, "Scheduled VPN: " + schedule.getId() + " for " + connectTimeUTC);
         return schedule.getId();
     }
     
@@ -60,7 +59,6 @@ public class VpnScheduler {
     public void cancelSchedule(String scheduleId) {
         startSchedulerService();
         cancelScheduleInternal(scheduleId);
-        Log.d(TAG, "Cancelled schedule: " + scheduleId);
     }
     
     /**
@@ -68,8 +66,6 @@ public class VpnScheduler {
      * @param scheduleId Schedule ID to cancel
      */
     public void cancelScheduleDirect(String scheduleId) {
-        Log.d(TAG, "Cancelling schedule directly: " + scheduleId);
-        
         // Cancel alarms directly
         android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(android.content.Context.ALARM_SERVICE);
         
@@ -95,16 +91,11 @@ public class VpnScheduler {
             android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
         );
         
-        Log.d(TAG, "Cancelling connect alarm for schedule: " + scheduleId);
         alarmManager.cancel(connectPending);
-        Log.d(TAG, "Cancelling disconnect alarm for schedule: " + scheduleId);
         alarmManager.cancel(disconnectPending);
         
         // Remove from storage directly
-        Log.d(TAG, "Removing schedule from storage: " + scheduleId);
         removeScheduleDirect(scheduleId);
-        
-        Log.d(TAG, "Schedule cancelled directly: " + scheduleId);
     }
     
     private void removeScheduleDirect(String scheduleId) {
@@ -132,7 +123,6 @@ public class VpnScheduler {
         // Save back to preferences
         String updatedJson = gson.toJson(schedules);
         prefs.edit().putString("schedules", updatedJson).apply();
-        Log.d(TAG, "Removed schedule from storage: " + scheduleId);
     }
     
     /**

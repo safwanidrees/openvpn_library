@@ -51,74 +51,52 @@ public class VpnSchedulerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "VPN Scheduler Service created");
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         preferences = getSharedPreferences("vpn_schedules", Context.MODE_PRIVATE);
         flagPreferences = getSharedPreferences(FLAG_PREFS, Context.MODE_PRIVATE);
         gson = new Gson();
         createNotificationChannel();
-        Log.d(TAG, "VPN Scheduler Service initialized successfully");
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "VPN Scheduler Service onStartCommand called");
-        Log.d(TAG, "VPN Scheduler Service: Intent: " + intent);
-        Log.d(TAG, "VPN Scheduler Service: Flags: " + flags + ", StartId: " + startId);
-        
         if (intent != null) {
             String action = intent.getAction();
             String scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID);
             String intentAction = intent.getStringExtra("action");
             
-            Log.d(TAG, "VPN Scheduler received action: " + action + ", scheduleId: " + scheduleId + ", intentAction: " + intentAction);
-            Log.d(TAG, "VPN Scheduler: All intent extras: " + intent.getExtras());
-            
             if (ACTION_SCHEDULE_CONNECT.equals(action)) {
-                Log.d(TAG, "VPN Scheduler: Handling scheduled connect for schedule: " + scheduleId);
                 handleScheduledConnect(scheduleId);
             } else if (ACTION_SCHEDULE_DISCONNECT.equals(action)) {
-                Log.d(TAG, "VPN Scheduler: Handling scheduled disconnect for schedule: " + scheduleId);
                 handleScheduledDisconnect(scheduleId);
             } else if ("schedule".equals(intentAction)) {
                 VpnSchedule schedule = (VpnSchedule) intent.getSerializableExtra("schedule");
                 if (schedule != null) {
-                    Log.d(TAG, "VPN Scheduler: Scheduling new VPN connection for: " + schedule.getName());
                     scheduleVpn(schedule);
                 }
             } else if ("cancel".equals(intentAction)) {
                 String cancelScheduleId = intent.getStringExtra("scheduleId");
                 if (cancelScheduleId != null) {
-                    Log.d(TAG, "VPN Scheduler: Cancelling schedule: " + cancelScheduleId);
                     cancelSchedule(cancelScheduleId);
                 }
             } else if ("update".equals(intentAction)) {
                 VpnSchedule schedule = (VpnSchedule) intent.getSerializableExtra("schedule");
                 if (schedule != null) {
-                    Log.d(TAG, "VPN Scheduler: Updating schedule: " + schedule.getName());
                     saveSchedule(schedule);
                 }
             } else if ("check_idle".equals(intentAction)) {
-                Log.d(TAG, "VPN Scheduler: Checking if service should stop (idle check)");
                 maybeStopSchedulerIfIdle();
             }
         }
         
         // Keep service running
-        Log.d(TAG, "VPN Scheduler: Starting foreground service");
         if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 14 (API 34)
-            // Android 14+ requires explicit foreground service type
-            Log.d(TAG, "VPN Scheduler: Starting foreground service with dataSync type (Android 14+)");
             startForeground(getNotificationIdFromPrefs(), createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            // Android 10+ supports foreground service types but not required
-            Log.d(TAG, "VPN Scheduler: Starting foreground service with dataSync type (Android 10+)");
             startForeground(getNotificationIdFromPrefs(), createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
-            Log.d(TAG, "VPN Scheduler: Starting foreground service (Android 9 and below)");
             startForeground(getNotificationIdFromPrefs(), createNotification());
         }
-        Log.d(TAG, "VPN Scheduler: Foreground service started successfully");
         return START_STICKY;
     }
     
@@ -158,72 +136,36 @@ public class VpnSchedulerService extends Service {
     }
     
     private void handleScheduledConnect(String scheduleId) {
-        long currentTime = System.currentTimeMillis();
-        Log.d(TAG, "VPN Scheduler: Handling scheduled connect for: " + scheduleId);
-        Log.d(TAG, "VPN Scheduler: Triggered at UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
-        
         // Clear scheduled-disconnect suppression flag and notify app
         try {
             flagPreferences.edit().putBoolean(KEY_SCHEDULED_DISCONNECT, false).apply();
             Intent broadcast = new Intent(ACTION_SCHEDULED_EVENT);
             broadcast.putExtra("type", "connect");
             LocalBroadcastManager.getInstance(this).sendBroadcast(broadcast);
-            Log.d(TAG, "VPN Scheduler: Broadcasted scheduled connect event");
         } catch (Exception e) {
-            Log.w(TAG, "VPN Scheduler: Failed to broadcast scheduled connect event: " + e.getMessage());
+            Log.w(TAG, "Failed to broadcast scheduled connect event: " + e.getMessage());
         }
 
         VpnSchedule schedule = getSchedule(scheduleId);
         if (schedule == null) {
-            Log.e(TAG, "VPN Scheduler: Schedule not found: " + scheduleId);
+            Log.e(TAG, "Schedule not found: " + scheduleId);
             return;
         }
-        
-        Log.d(TAG, "VPN Scheduler: Starting VPN connection for schedule: " + schedule.getName());
-        Log.d(TAG, "VPN Scheduler: Config: " + schedule.getConfig());
-        Log.d(TAG, "VPN Scheduler: Username: " + schedule.getUsername());
-        Log.d(TAG, "VPN Scheduler: Password: " + (schedule.getPassword() != null ? "[PROVIDED]" : "[NULL]"));
-        Log.d(TAG, "VPN Scheduler: Bypass packages: " + schedule.getBypassPackages());
         
         // Validate VPN configuration
-        Log.d(TAG, "VPN Scheduler: Starting validation checks...");
-        
         if (schedule.getConfig() == null || schedule.getConfig().trim().isEmpty()) {
-            Log.e(TAG, "VPN Scheduler: ERROR - VPN config is null or empty");
+            Log.e(TAG, "VPN config is null or empty");
             return;
         }
         
-        Log.d(TAG, "VPN Scheduler: Config validation passed");
-        
-        // Note: Username and password are optional in this app design
-        if (schedule.getUsername() != null && !schedule.getUsername().trim().isEmpty()) {
-            Log.d(TAG, "VPN Scheduler: Username provided: " + schedule.getUsername());
-        } else {
-            Log.d(TAG, "VPN Scheduler: No username provided (optional)");
-        }
-        
-        if (schedule.getPassword() != null && !schedule.getPassword().trim().isEmpty()) {
-            Log.d(TAG, "VPN Scheduler: Password provided");
-        } else {
-            Log.d(TAG, "VPN Scheduler: No password provided (optional)");
-        }
-        
-        Log.d(TAG, "VPN Scheduler: All validation checks passed");
-        
         // Clear other existing schedules for fresh start (prevent conflicts)
-        Log.d(TAG, "VPN Scheduler: Clearing other existing schedules for fresh start");
         List<VpnSchedule> existingSchedules = getAllSchedules();
         for (VpnSchedule existingSchedule : existingSchedules) {
             // Don't clear the current schedule - we need it for disconnect time
             if (!existingSchedule.getId().equals(scheduleId)) {
                 cancelSchedule(existingSchedule.getId());
-                Log.d(TAG, "VPN Scheduler: Cancelled other schedule: " + existingSchedule.getId());
             }
         }
-        Log.d(TAG, "VPN Scheduler: Cleared other schedules, keeping current: " + scheduleId);
-        
-        // Start VPN connection using the same method as normal connection
-        Log.d(TAG, "VPN Scheduler: Starting VPN using OpenVpnApi.startVpn()");
         
         try {
             // Parse bypass packages from JSON string
@@ -238,12 +180,10 @@ public class VpnSchedulerService extends Service {
                         bypassPackagesList = new java.util.ArrayList<>();
                     }
                 } catch (Exception e) {
-                    Log.w(TAG, "VPN Scheduler: Could not parse bypass packages: " + e.getMessage());
+                    Log.w(TAG, "Could not parse bypass packages: " + e.getMessage());
                     bypassPackagesList = new java.util.ArrayList<>();
                 }
             }
-            
-            Log.d(TAG, "VPN Scheduler: Bypass packages list size: " + bypassPackagesList.size());
             
             // Use the same API as normal VPN connection
             de.blinkt.openvpn.OpenVpnApi.startVpn(
@@ -255,54 +195,40 @@ public class VpnSchedulerService extends Service {
                 bypassPackagesList
             );
             
-            Log.d(TAG, "VPN Scheduler: VPN connection started successfully using OpenVpnApi");
         } catch (Exception e) {
-            Log.e(TAG, "VPN Scheduler: Error starting VPN with OpenVpnApi: " + e.getMessage());
-            Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
+            Log.e(TAG, "Error starting VPN: " + e.getMessage());
             e.printStackTrace();
         }
         
         // Schedule disconnect if needed
         if (schedule.getDisconnectTimeUTC() > 0) {
-            Log.d(TAG, "VPN Scheduler: Scheduling disconnect for: " + schedule.getName() + " at " + schedule.getDisconnectTimeUTC());
             scheduleDisconnect(schedule);
         }
     }
     
     private void handleScheduledDisconnect(String scheduleId) {
-        long currentTime = System.currentTimeMillis();
-        Log.d(TAG, "VPN Scheduler: Handling scheduled disconnect for: " + scheduleId);
-        Log.d(TAG, "VPN Scheduler: Disconnect triggered at UTC time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
-        
         // Set scheduled-disconnect suppression flag and notify app
         try {
             flagPreferences.edit().putBoolean(KEY_SCHEDULED_DISCONNECT, true).apply();
             Intent broadcast = new Intent(ACTION_SCHEDULED_EVENT);
             broadcast.putExtra("type", "disconnect");
             LocalBroadcastManager.getInstance(this).sendBroadcast(broadcast);
-            Log.d(TAG, "VPN Scheduler: Broadcasted scheduled disconnect event");
         } catch (Exception e) {
-            Log.w(TAG, "VPN Scheduler: Failed to broadcast scheduled disconnect event: " + e.getMessage());
+            Log.w(TAG, "Failed to broadcast scheduled disconnect event: " + e.getMessage());
         }
 
         // Stop VPN connection using the same method as normal disconnect
-        Log.d(TAG, "VPN Scheduler: Stopping VPN using OpenVPNThread.stop()");
         try {
             de.blinkt.openvpn.core.OpenVPNThread.stop();
-            Log.d(TAG, "VPN Scheduler: VPN disconnect command sent successfully");
             
             // Clear all schedules to prevent auto-reconnect (same as manual disconnect)
-            Log.d(TAG, "VPN Scheduler: Clearing all schedules to prevent auto-reconnect");
             List<VpnSchedule> allSchedules = getAllSchedules();
             for (VpnSchedule schedule : allSchedules) {
                 cancelSchedule(schedule.getId());
-                Log.d(TAG, "VPN Scheduler: Cancelled schedule: " + schedule.getId());
             }
-            Log.d(TAG, "VPN Scheduler: Cleared " + allSchedules.size() + " schedules");
             
         } catch (Exception e) {
-            Log.e(TAG, "VPN Scheduler: Error stopping VPN: " + e.getMessage());
-            Log.e(TAG, "VPN Scheduler: Error type: " + e.getClass().getSimpleName());
+            Log.e(TAG, "Error stopping VPN: " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -336,24 +262,11 @@ public class VpnSchedulerService extends Service {
             );
         }
         
-        Log.d(TAG, "Scheduled disconnect for: " + schedule.getId() + " at " + schedule.getDisconnectTimeUTC());
     }
     
     public void scheduleVpn(VpnSchedule schedule) {
-        Log.d(TAG, "VPN Scheduler: Scheduling VPN connection for: " + schedule.getName());
-        Log.d(TAG, "VPN Scheduler: Schedule ID: " + schedule.getId());
-        Log.d(TAG, "VPN Scheduler: Is recurring: " + schedule.isRecurring());
-        
-        if (schedule.isRecurring()) {
-            Log.d(TAG, "VPN Scheduler: Recurring schedule - Days mask: " + schedule.getRecurringDays());
-            Log.d(TAG, "VPN Scheduler: Recurring schedule - Next connect time: " + schedule.getNextConnectTime() + " (" + new java.util.Date(schedule.getNextConnectTime()) + ")");
-        } else {
-            Log.d(TAG, "VPN Scheduler: One-time schedule - Connect time: " + schedule.getConnectTimeUTC() + " (" + new java.util.Date(schedule.getConnectTimeUTC()) + ")");
-        }
-        
         // Store schedule
         saveSchedule(schedule);
-        Log.d(TAG, "VPN Scheduler: Schedule saved to preferences");
         
         // Schedule connect
         Intent connectIntent = new Intent(this, VpnSchedulerService.class);
@@ -371,56 +284,36 @@ public class VpnSchedulerService extends Service {
         long currentTime = System.currentTimeMillis();
         long timeUntilTrigger = triggerTime - currentTime;
         
-        // Format UTC time properly
-        java.text.SimpleDateFormat utcFormat = new java.text.SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss.SSS 'UTC'");
-        utcFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        
-        Log.d(TAG, "VPN Scheduler: Current UTC time: " + currentTime + " (" + utcFormat.format(new java.util.Date(currentTime)) + ")");
-        Log.d(TAG, "VPN Scheduler: Trigger UTC time: " + triggerTime + " (" + utcFormat.format(new java.util.Date(triggerTime)) + ")");
-        Log.d(TAG, "VPN Scheduler: Time until trigger: " + timeUntilTrigger + "ms (" + (timeUntilTrigger / 1000) + " seconds)");
-        
         // Check if start time is in the past
         if (timeUntilTrigger <= 0) {
-            Log.d(TAG, "VPN Scheduler: Start time is in the past or now, connecting immediately");
-            Log.d(TAG, "VPN Scheduler: Starting VPN connection immediately for schedule: " + schedule.getId());
-            
             // Start VPN immediately
             handleScheduledConnect(schedule.getId());
             
             // Only schedule disconnect if end time is in the future
             if (schedule.getDisconnectTimeUTC() > currentTime) {
-                Log.d(TAG, "VPN Scheduler: End time is in the future, scheduling disconnect");
                 scheduleDisconnect(schedule);
-            } else {
-                Log.d(TAG, "VPN Scheduler: End time is also in the past, no disconnect scheduling needed");
             }
             
             return;
         }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            Log.d(TAG, "VPN Scheduler: Setting exact alarm with allowWhileIdle (Android 6+)");
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 triggerTime,
                 pendingIntent
             );
         } else {
-            Log.d(TAG, "VPN Scheduler: Setting exact alarm (Android 5 and below)");
             alarmManager.setExact(
                 AlarmManager.RTC_WAKEUP,
                 triggerTime,
                 pendingIntent
             );
         }
-        
-        Log.d(TAG, "VPN Scheduler: VPN scheduled successfully for: " + schedule.getId() + " at " + triggerTime);
     }
     
     
     public void cancelSchedule(String scheduleId) {
-        Log.d(TAG, "VPN Scheduler: Cancelling schedule: " + scheduleId);
-        
         // Cancel alarms
         Intent connectIntent = new Intent(this, VpnSchedulerService.class);
         connectIntent.setAction(ACTION_SCHEDULE_CONNECT);
@@ -444,16 +337,11 @@ public class VpnSchedulerService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        Log.d(TAG, "VPN Scheduler: Cancelling connect alarm for schedule: " + scheduleId);
         alarmManager.cancel(connectPending);
-        Log.d(TAG, "VPN Scheduler: Cancelling disconnect alarm for schedule: " + scheduleId);
         alarmManager.cancel(disconnectPending);
         
         // Remove from storage
-        Log.d(TAG, "VPN Scheduler: Removing schedule from storage: " + scheduleId);
         removeSchedule(scheduleId);
-        
-        Log.d(TAG, "VPN Scheduler: Schedule cancelled successfully: " + scheduleId);
 
         // Stop scheduler foreground service if no schedules remain
         maybeStopSchedulerIfIdle();
@@ -534,14 +422,11 @@ public class VpnSchedulerService extends Service {
         try {
             List<VpnSchedule> schedules = getAllSchedules();
             if (schedules == null || schedules.isEmpty()) {
-                Log.d(TAG, "VPN Scheduler: No schedules remain - stopping foreground service");
                 stopForeground(true);
                 stopSelf();
-            } else {
-                Log.d(TAG, "VPN Scheduler: Remaining schedules count: " + schedules.size());
             }
         } catch (Exception e) {
-            Log.w(TAG, "VPN Scheduler: Failed to stop service when idle: " + e.getMessage());
+            Log.w(TAG, "Failed to stop service when idle: " + e.getMessage());
         }
     }
 
