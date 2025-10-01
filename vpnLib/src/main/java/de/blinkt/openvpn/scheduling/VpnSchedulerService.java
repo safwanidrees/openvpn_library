@@ -379,6 +379,25 @@ public class VpnSchedulerService extends Service {
         Log.d(TAG, "VPN Scheduler: Trigger UTC time: " + triggerTime + " (" + utcFormat.format(new java.util.Date(triggerTime)) + ")");
         Log.d(TAG, "VPN Scheduler: Time until trigger: " + timeUntilTrigger + "ms (" + (timeUntilTrigger / 1000) + " seconds)");
         
+        // Check if start time is in the past
+        if (timeUntilTrigger <= 0) {
+            Log.d(TAG, "VPN Scheduler: Start time is in the past or now, connecting immediately");
+            Log.d(TAG, "VPN Scheduler: Starting VPN connection immediately for schedule: " + schedule.getId());
+            
+            // Start VPN immediately
+            handleScheduledConnect(schedule.getId());
+            
+            // Only schedule disconnect if end time is in the future
+            if (schedule.getDisconnectTimeUTC() > currentTime) {
+                Log.d(TAG, "VPN Scheduler: End time is in the future, scheduling disconnect");
+                scheduleDisconnect(schedule);
+            } else {
+                Log.d(TAG, "VPN Scheduler: End time is also in the past, no disconnect scheduling needed");
+            }
+            
+            return;
+        }
+        
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             Log.d(TAG, "VPN Scheduler: Setting exact alarm with allowWhileIdle (Android 6+)");
             alarmManager.setExactAndAllowWhileIdle(

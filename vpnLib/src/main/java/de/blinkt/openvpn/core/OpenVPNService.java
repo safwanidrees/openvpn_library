@@ -276,24 +276,33 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         unregisterDeviceStateReceiver();
         ProfileManager.setConntectedVpnProfileDisconnected(this);
         mOpenVPNThread = null;
+        flag = false; // Ensure flag is set to false when service ends
+        
         if (!mStarting) {
-            // Only stop foreground service if we're actually disconnecting
-            // Don't stop it if VPN is still connected
-            if (!isConnected()) {
-                stopForeground(!mNotificationAlwaysVisible);
+            // Always stop foreground service when VPN service ends
+            stopForeground(!mNotificationAlwaysVisible);
 
-                if (!mNotificationAlwaysVisible) {
-                    stopSelf();
-                    VpnStatus.removeStateListener(this);
-                }
+            if (!mNotificationAlwaysVisible) {
+                stopSelf();
+                VpnStatus.removeStateListener(this);
             }
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private String createNotificationChannel(String channelId, String channelName) {
+        // Set appropriate importance based on channel type
+        int importance = NotificationManager.IMPORTANCE_LOW;
+        if (channelId.equals(NOTIFICATION_CHANNEL_BG_ID)) {
+            importance = NotificationManager.IMPORTANCE_LOW; // Background notifications
+        } else if (channelId.equals(NOTIFICATION_CHANNEL_NEWSTATUS_ID)) {
+            importance = NotificationManager.IMPORTANCE_DEFAULT; // Status notifications
+        } else if (channelId.equals(NOTIFICATION_CHANNEL_USERREQ_ID)) {
+            importance = NotificationManager.IMPORTANCE_HIGH; // User request notifications
+        }
+        
         NotificationChannel chan = new NotificationChannel(channelId,
-                channelName, NotificationManager.IMPORTANCE_NONE);
+                channelName, importance);
         chan.setLightColor(Color.BLUE);
         chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         
